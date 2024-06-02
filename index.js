@@ -29,10 +29,14 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const userCollection = client.db("syncFitDB").collection("users");
+    const slideCollection = client.db("syncFitDB").collection("slides");
     const featureCollection = client.db("syncFitDB").collection("features");
     const classCollection = client.db("syncFitDB").collection("classes");
     const reviewCollection = client.db("syncFitDB").collection("reviews");
     const forumCollection = client.db("syncFitDB").collection("forums");
+    const newsLetterUserCollection = client
+      .db("syncFitDB")
+      .collection("newsLetterUsers");
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -43,6 +47,12 @@ async function run() {
         return;
       }
       const result = await userCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // get all slices for banner:
+    app.get("/slides", async (req, res) => {
+      const result = await slideCollection.find().toArray();
       res.send(result);
     });
 
@@ -85,6 +95,27 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await forumCollection.findOne(query);
+      res.send(result);
+    });
+
+    // save a  news letter subscribed user:
+    app.post("/news-letter-users/:email", async (req, res) => {
+      const newsLetterUser = req.body;
+      const query = { email: req.params?.email };
+      const isSubScribedUserExist = await newsLetterUserCollection.findOne(
+        query
+      );
+
+      if (isSubScribedUserExist) {
+        return res.send({ message: "You have already subscribe with this email" });
+      }
+      const result = await newsLetterUserCollection.insertOne(newsLetterUser);
+      res.send(result);
+    });
+
+    // get all news letter subscribed users:
+    app.get("/news-letter-users", async (req, res) => {
+      const result = await newsLetterUserCollection.find().toArray();
       res.send(result);
     });
 
