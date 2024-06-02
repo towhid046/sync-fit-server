@@ -29,6 +29,8 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const userCollection = client.db("syncFitDB").collection("users");
+    const classCollection = client.db("syncFitDB").collection("classes");
+    const reviewCollection = client.db("syncFitDB").collection("reviews");
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -45,6 +47,16 @@ async function run() {
     // get all users:
     app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get the popular 6 classes based on the totalBookings:
+    app.get("/popular-classes", async (req, res) => {
+      const result = await classCollection
+        .find()
+        .sort({ totalBookings: -1 })
+        .limit(6)
+        .toArray();
       res.send(result);
     });
 
