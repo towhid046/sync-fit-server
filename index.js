@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const app = express();
 
@@ -29,8 +29,10 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     const userCollection = client.db("syncFitDB").collection("users");
+    const featureCollection = client.db("syncFitDB").collection("features");
     const classCollection = client.db("syncFitDB").collection("classes");
     const reviewCollection = client.db("syncFitDB").collection("reviews");
+    const forumCollection = client.db("syncFitDB").collection("forums");
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -50,6 +52,12 @@ async function run() {
       res.send(result);
     });
 
+    // get all features:
+    app.get("/features", async (req, res) => {
+      const result = await featureCollection.find().toArray();
+      res.send(result);
+    });
+
     // get the popular 6 classes based on the totalBookings:
     app.get("/popular-classes", async (req, res) => {
       const result = await classCollection
@@ -63,6 +71,20 @@ async function run() {
     // get all reviews:
     app.get("/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get all forums:
+    app.get("/forums", async (req, res) => {
+      const result = await forumCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get a single forum by _id:
+    app.get("/forums/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await forumCollection.findOne(query);
       res.send(result);
     });
 
