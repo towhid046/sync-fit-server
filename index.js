@@ -37,6 +37,7 @@ async function run() {
     const newsLetterUserCollection = client
       .db("syncFitDB")
       .collection("newsLetterUsers");
+    const trainerCollection = client.db("syncFitDB").collection("trainers");
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -107,7 +108,9 @@ async function run() {
       );
 
       if (isSubScribedUserExist) {
-        return res.send({ message: "You have already subscribe with this email" });
+        return res.send({
+          message: "You have already subscribe with this email",
+        });
       }
       const result = await newsLetterUserCollection.insertOne(newsLetterUser);
       res.send(result);
@@ -116,6 +119,20 @@ async function run() {
     // get all news letter subscribed users:
     app.get("/news-letter-users", async (req, res) => {
       const result = await newsLetterUserCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get all trainers:
+    app.get("/trainers", async (req, res) => {
+      const result = await trainerCollection.find().toArray();
+      res.send(result);
+    });
+
+    // get a single trainer :
+    app.get("/trainers/:id", async (req, res) => {
+      const id = req.params?.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await trainerCollection.findOne(query);
       res.send(result);
     });
 
