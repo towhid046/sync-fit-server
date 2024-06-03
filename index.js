@@ -38,6 +38,9 @@ async function run() {
       .db("syncFitDB")
       .collection("newsLetterUsers");
     const trainerCollection = client.db("syncFitDB").collection("trainers");
+    const bookedPackageCollection = client
+      .db("syncFitDB")
+      .collection("bookedPackages");
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -133,6 +136,19 @@ async function run() {
       const id = req.params?.id;
       const query = { _id: new ObjectId(id) };
       const result = await trainerCollection.findOne(query);
+      res.send(result);
+    });
+
+    // save a booked package:
+    app.post("/booking-package", async (req, res) => {
+      const bookedPackage = req.body;
+      const result = await bookedPackageCollection.insertOne(bookedPackage);
+      res.send(result);
+    });
+
+    // get all booking-packages:
+    app.get("/all-booked-packages", async (req, res) => {
+      const result = await bookedPackageCollection.find().toArray();
       res.send(result);
     });
 
