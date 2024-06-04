@@ -38,6 +38,7 @@ async function run() {
       .db("syncFitDB")
       .collection("newsLetterUsers");
     const trainerCollection = client.db("syncFitDB").collection("trainers");
+    const appliedTrainerCollection = client.db("syncFitDB").collection("appliedTrainers");
     const bookedPackageCollection = client
       .db("syncFitDB")
       .collection("bookedPackages");
@@ -125,6 +126,7 @@ async function run() {
       res.send(result);
     });
 
+    // ----------------------------------------------------------------
     // get all trainers:
     app.get("/trainers", async (req, res) => {
       const result = await trainerCollection.find().toArray();
@@ -138,6 +140,20 @@ async function run() {
       const result = await trainerCollection.findOne(query);
       res.send(result);
     });
+
+    // save pending trainers api:
+    app.post("/applied-trainers", async (req, res) => {
+      const trainer = req.body;
+      const result = await appliedTrainerCollection.insertOne(trainer);
+      res.send(result);
+    });
+
+    app.get("/applied-trainers", async (req, res) => {
+      const result = await appliedTrainerCollection.find().toArray();
+      res.send(result);
+    });
+
+    // ----------------------------------------------------------------
 
     // save a booked package:
     app.post("/booking-package", async (req, res) => {
