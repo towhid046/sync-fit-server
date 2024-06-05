@@ -34,6 +34,7 @@ async function run() {
     const classCollection = client.db("syncFitDB").collection("classes");
     const reviewCollection = client.db("syncFitDB").collection("reviews");
     const forumCollection = client.db("syncFitDB").collection("forums");
+    const newsCollection = client.db("syncFitDB").collection("news");
     const newsLetterUserCollection = client
       .db("syncFitDB")
       .collection("newsLetterUsers");
@@ -128,17 +129,17 @@ async function run() {
       res.send(result);
     });
 
-    // get all forums:
-    app.get("/forums", async (req, res) => {
-      const result = await forumCollection.find().toArray();
+    // get all news:
+    app.get("/news", async (req, res) => {
+      const result = await newsCollection.find().toArray();
       res.send(result);
     });
 
     // get a single forum by _id:
-    app.get("/forums/:id", async (req, res) => {
+    app.get("/news/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = await forumCollection.findOne(query);
+      const result = await newsCollection.findOne(query);
       res.send(result);
     });
 
@@ -204,6 +205,62 @@ async function run() {
     // get all booking-packages:
     app.get("/all-booked-packages", async (req, res) => {
       const result = await bookedPackageCollection.find().toArray();
+      res.send(result);
+    });
+
+    // --------------------------------------------------------------
+
+    // get total forums count:
+    app.get("/total-forums-count", async (req, res) => {
+      const totalForums = await forumCollection.estimatedDocumentCount();
+      res.send({ totalForums });
+    });
+
+    // get all forums:
+    app.get("/forums", async (req, res) => {
+      const currentPage = Number(req.query?.currentPage);
+      const forumPerPage = Number(req.query?.totalPerPage);
+      const result = await forumCollection
+        .find()
+        .skip((currentPage - 1) * forumPerPage)
+        .limit(forumPerPage)
+        .toArray();
+
+      res.send(result);
+    });
+
+    // modify the forms up and down vote by using patch method:
+    app.patch("/modify-forum-up-vote", async (req, res) => {
+      const id = req.query?.id;
+      const voteState = req.query?.voteState === "true" ? true : false;
+      const downVote = req.query?.downVote;
+      const voteStateDown = req.query?.isVoteDown === "true" ? true : false;
+
+      const query = { _id: new ObjectId(id) };
+      const options = {
+        projection: { _id: 0, up_vote_count: 1 },
+      };
+      const targetedForum = await forumCollection.findOne(query, options);
+      const currentUpVoteCount = Number(targetedForum.up_vote_count);
+
+      let setDoc = {};
+      if (downVote === "down" && !voteState) {
+        setDoc = { up_vote_count: currentUpVoteCount - 1 };
+      }
+
+      if (voteState && downVote !== "down") {
+        setDoc = { up_vote_count: currentUpVoteCount + 1 };
+      }
+
+      if (downVote !== "down" && voteState === false) {
+        setDoc = { up_vote_count: currentUpVoteCount - 1 };
+      }
+
+      const filter = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: setDoc,
+      };
+      const result = await forumCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
 
