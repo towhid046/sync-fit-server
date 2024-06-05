@@ -38,7 +38,9 @@ async function run() {
       .db("syncFitDB")
       .collection("newsLetterUsers");
     const trainerCollection = client.db("syncFitDB").collection("trainers");
-    const appliedTrainerCollection = client.db("syncFitDB").collection("appliedTrainers");
+    const appliedTrainerCollection = client
+      .db("syncFitDB")
+      .collection("appliedTrainers");
     const bookedPackageCollection = client
       .db("syncFitDB")
       .collection("bookedPackages");
@@ -81,6 +83,43 @@ async function run() {
         .limit(6)
         .toArray();
       res.send(result);
+    });
+
+    // get all classes:
+    app.get("/classes", async (req, res) => {
+      const currentPage = Number(req.query?.currentPage);
+      const classPerPage = Number(req.query?.totalPerPage);
+
+      const result = await classCollection
+        .find()
+        .skip((currentPage - 1) * classPerPage)
+        .limit(classPerPage)
+        .toArray();
+
+      res.send(result);
+
+      // const search = req.query?.search;
+      // const query = search
+      // ? { service_name: { $regex: search, $options: "i" } }
+      //   : {};
+
+      // let result;
+      // if (search) {
+      //   result = await classCollection.find(query).toArray();
+      // } else {
+      //   result = await classCollection
+      //     .find(query)
+      //     .skip((currentPage - 1) * classPerPage)
+      //     .limit(classPerPage)
+      //     .toArray();
+      // }
+      // res.send(result);
+    });
+
+    // get total classes count:
+    app.get("/total-classes-count", async (req, res) => {
+      const totalClasses = await classCollection.estimatedDocumentCount();
+      res.send({ totalClasses });
     });
 
     // get all reviews:
