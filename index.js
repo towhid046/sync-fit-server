@@ -181,6 +181,22 @@ async function run() {
       res.send(result);
     });
 
+    // remove a trainer and it's role will be changed to Member
+    app.delete("/remove-trainer/:id", async (req, res) => {
+      const id = req.params?.id;
+      const email = req.query.email;
+      const query = { _id: new ObjectId(id) };
+
+      const newUserDoc = { email: email, role: "Member" };
+      const addedUser = await userCollection.insertOne(newUserDoc);
+
+      let result = "";
+      if (addedUser) {
+        result = await trainerCollection.deleteOne(query);
+      }
+      res.send(result);
+    });
+    // -----------------------------------------------------------
     // save pending trainers api:
     app.post("/applied-trainers", async (req, res) => {
       const trainer = req.body;
@@ -188,23 +204,35 @@ async function run() {
       res.send(result);
     });
 
+    // get all applicant
     app.get("/applied-trainers", async (req, res) => {
       const result = await appliedTrainerCollection.find().toArray();
       res.send(result);
     });
 
-    // remove a trainer and it's role will be changed to Member
-    app.delete("/remove-trainer/:id", async (req, res) => {
+    // get a specific applicant
+    app.get("/applied-trainers/:id", async (req, res) => {
       const id = req.params?.id;
-      const email = req.query.email;
       const query = { _id: new ObjectId(id) };
-      
-      const newUserDoc = { email:email, role: "Member" };
-      const addedUser = await userCollection.insertOne(newUserDoc);
+      const result = await appliedTrainerCollection.findOne(query);
+      res.send(result);
+    });
 
-      let result = "";
-      if (addedUser) {
-        result = await trainerCollection.deleteOne(query);
+    // accept a applicant as a trainer:
+    app.post("/accept-applicant/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      let acceptedApplicant = req.body;
+      acceptedApplicant.role = "Trainer";
+
+      delete acceptedApplicant._id;
+
+      const acceptedApplicantDoc = { ...acceptedApplicant };
+
+      const accepted = await trainerCollection.insertOne(acceptedApplicantDoc);
+      let result = null;
+      if (accepted) {
+        result = await appliedTrainerCollection.deleteOne(query);
       }
       res.send(result);
     });
