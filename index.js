@@ -161,7 +161,7 @@ async function run() {
     });
 
     // get all news letter subscribed users:
-    app.get("/news-letter-users", async (req, res) => {
+    app.get("/news-letter-subscribers", async (req, res) => {
       const result = await newsLetterUserCollection.find().toArray();
       res.send(result);
     });
@@ -190,6 +190,22 @@ async function run() {
 
     app.get("/applied-trainers", async (req, res) => {
       const result = await appliedTrainerCollection.find().toArray();
+      res.send(result);
+    });
+
+    // remove a trainer and it's role will be changed to Member
+    app.delete("/remove-trainer/:id", async (req, res) => {
+      const id = req.params?.id;
+      const email = req.query.email;
+      const query = { _id: new ObjectId(id) };
+      
+      const newUserDoc = { email:email, role: "Member" };
+      const addedUser = await userCollection.insertOne(newUserDoc);
+
+      let result = "";
+      if (addedUser) {
+        result = await trainerCollection.deleteOne(query);
+      }
       res.send(result);
     });
 
@@ -234,7 +250,6 @@ async function run() {
       const id = req.query?.id;
       const voteState = req.query?.voteState === "true" ? true : false;
       const downVote = req.query?.downVote;
-      const voteStateDown = req.query?.isVoteDown === "true" ? true : false;
 
       const query = { _id: new ObjectId(id) };
       const options = {
