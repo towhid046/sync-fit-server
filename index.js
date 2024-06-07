@@ -123,11 +123,11 @@ async function run() {
       res.send({ totalClasses });
     });
 
-    app.post('/add-new-class', async(req, res)=>{
+    app.post("/add-new-class", async (req, res) => {
       const newClass = req.body;
-      const result = await classCollection.insertOne(newClass)
+      const result = await classCollection.insertOne(newClass);
       res.send(result);
-    })
+    });
 
     // -------------------------------------------------------------------
 
@@ -176,7 +176,7 @@ async function run() {
 
     app.get("/count-news-letter-subscribers", async (req, res) => {
       const result = await newsLetterUserCollection.estimatedDocumentCount();
-      res.send({count: result});
+      res.send({ count: result });
     });
 
     // ----------------------------------------------------------------
@@ -186,13 +186,41 @@ async function run() {
       res.send(result);
     });
 
-    // get a single trainer :
+    // get a single trainer by id :
     app.get("/trainers/:id", async (req, res) => {
       const id = req.params?.id;
       const query = { _id: new ObjectId(id) };
       const result = await trainerCollection.findOne(query);
       res.send(result);
     });
+
+    // get a trainer by email:
+    app.get("/trainer-by-email", async (req, res) => {
+      const email = req.query?.email;
+      const filter = { email };
+      const result = await trainerCollection.findOne(filter);
+      res.send(result)
+    });
+
+    // get all slots of a particular trainers by email:
+    app.get("/available-slots", async (req, res) => {
+      const email = req.query?.email;
+      const query = { email: email };
+      const options = { projection: { _id: 0, availableSlots: 1 } };
+      const result = await trainerCollection.findOne(query, options);
+      res.send(result);
+    });
+
+    // remove a slot:
+    app.delete("/remove-a-slot", async (req, res) => {
+      const trainerEmail = req.query?.email;
+      const slotName = req.query?.slot_name;
+      const filter = { email: trainerEmail };
+      const update = { $pull: { availableSlots: slotName } };
+      const result = await trainerCollection.updateOne(filter, update);
+      res.send(result);
+    });
+    // -------------------------------
 
     // remove a trainer and it's role will be changed to Member
     app.delete("/remove-trainer/:id", async (req, res) => {
@@ -212,6 +240,17 @@ async function run() {
     // -----------------------------------------------------------
     // save pending trainers api:
     app.post("/applied-trainers", async (req, res) => {
+      const email = req.query?.email;
+      const query = { email: email };
+      const isTrainerExist = await trainerCollection.findOne(query);
+      const isAlreadyApplied = await appliedTrainerCollection.findOne(query);
+      if (isTrainerExist) {
+        return res.send({ message: "trainer_exist" });
+      }
+      if (isAlreadyApplied) {
+        return res.send({ message: "already_applied" });
+      }
+
       const trainer = req.body;
       const result = await appliedTrainerCollection.insertOne(trainer);
       res.send(result);
@@ -251,7 +290,6 @@ async function run() {
     });
 
     // ----------------------------------------------------------------
-
     // save a booked package:
     app.post("/booking-package", async (req, res) => {
       const bookedPackage = req.body;
@@ -266,7 +304,6 @@ async function run() {
     });
 
     // --------------------------------------------------------------
-
     // get total forums count:
     app.get("/total-forums-count", async (req, res) => {
       const totalForums = await forumCollection.estimatedDocumentCount();
@@ -319,6 +356,8 @@ async function run() {
       const result = await forumCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+
+    // --------------------------------------------------------
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
