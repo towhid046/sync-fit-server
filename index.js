@@ -129,6 +129,18 @@ async function run() {
       res.send(result);
     });
 
+    // get all class name:
+    app.get("/all-class-name", async (req, res) => {
+      const options = { projection: { _id: 0, class_name: 1 } };
+      const result = await classCollection.find({}, options).toArray();
+      let classNames = [];
+
+      result.forEach((item) => {
+        classNames.push({ value: item.class_name, label: item.class_name });
+      });
+      res.send(classNames);
+    });
+
     // -------------------------------------------------------------------
 
     // get all reviews:
@@ -199,7 +211,7 @@ async function run() {
       const email = req.query?.email;
       const filter = { email };
       const result = await trainerCollection.findOne(filter);
-      res.send(result)
+      res.send(result);
     });
 
     // get all slots of a particular trainers by email:
