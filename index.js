@@ -123,6 +123,14 @@ async function run() {
       res.send({ totalClasses });
     });
 
+    app.post('/add-new-class', async(req, res)=>{
+      const newClass = req.body;
+      const result = await classCollection.insertOne(newClass)
+      res.send(result);
+    })
+
+    // -------------------------------------------------------------------
+
     // get all reviews:
     app.get("/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
@@ -164,6 +172,11 @@ async function run() {
     app.get("/news-letter-subscribers", async (req, res) => {
       const result = await newsLetterUserCollection.find().toArray();
       res.send(result);
+    });
+
+    app.get("/count-news-letter-subscribers", async (req, res) => {
+      const result = await newsLetterUserCollection.estimatedDocumentCount();
+      res.send({count: result});
     });
 
     // ----------------------------------------------------------------
