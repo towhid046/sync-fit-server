@@ -99,7 +99,7 @@ async function run() {
       const currentPage = Number(req.query?.currentPage);
       const classPerPage = Number(req.query?.totalPerPage);
 
-      const search = req.query?.search?.trim()
+      const search = req.query?.search?.trim();
       const query = search
         ? { class_name: { $regex: search, $options: "i" } }
         : {};
@@ -292,7 +292,8 @@ async function run() {
 
     // get all applicant
     app.get("/applied-trainers", async (req, res) => {
-      const result = await appliedTrainerCollection.find().toArray();
+      const query = { status: "Pending" };
+      const result = await appliedTrainerCollection.find(query).toArray();
       res.send(result);
     });
 
@@ -328,6 +329,25 @@ async function run() {
       if (accepted) {
         result = await appliedTrainerCollection.deleteOne(query);
       }
+      res.send(result);
+    });
+
+    // update a rejected applicant with status and feedback:
+    app.patch("/rejected-applicant", async (req, res) => {
+      const email = req.query?.email;
+      const rejectedApplicant = req.body;
+
+      const filter = { email };
+      const updatedDoc = {
+        $set: {
+          status: "Rejected",
+          adminFeedback: rejectedApplicant?.feedback,
+        },
+      };
+      const result = await appliedTrainerCollection.updateOne(
+        filter,
+        updatedDoc
+      );
       res.send(result);
     });
 
