@@ -99,30 +99,22 @@ async function run() {
       const currentPage = Number(req.query?.currentPage);
       const classPerPage = Number(req.query?.totalPerPage);
 
-      const result = await classCollection
-        .find()
-        .skip((currentPage - 1) * classPerPage)
-        .limit(classPerPage)
-        .toArray();
+      const search = req.query?.search?.trim()
+      const query = search
+        ? { class_name: { $regex: search, $options: "i" } }
+        : {};
 
+      let result;
+      if (search) {
+        result = await classCollection.find(query).toArray();
+      } else {
+        result = await classCollection
+          .find(query)
+          .skip((currentPage - 1) * classPerPage)
+          .limit(classPerPage)
+          .toArray();
+      }
       res.send(result);
-
-      // const search = req.query?.search;
-      // const query = search
-      // ? { service_name: { $regex: search, $options: "i" } }
-      //   : {};
-
-      // let result;
-      // if (search) {
-      //   result = await classCollection.find(query).toArray();
-      // } else {
-      //   result = await classCollection
-      //     .find(query)
-      //     .skip((currentPage - 1) * classPerPage)
-      //     .limit(classPerPage)
-      //     .toArray();
-      // }
-      // res.send(result);
     });
 
     // get total classes count:
