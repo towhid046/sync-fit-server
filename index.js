@@ -150,12 +150,19 @@ async function run() {
     });
 
     // -------------------------------------------------------------------
+    // save a review:
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.send(result);
+    });
 
     // get all reviews:
     app.get("/reviews", async (req, res) => {
       const result = await reviewCollection.find().toArray();
       res.send(result);
     });
+    // ----------------------------------------------------------------
 
     // get all news:
     app.get("/news", async (req, res) => {
@@ -305,6 +312,14 @@ async function run() {
       res.send(result);
     });
 
+    // get a applied trainer by email:
+    app.get("/applied-trainer-by-email", async (req, res) => {
+      const email = req.query?.email;
+      const query = { email };
+      const result = await appliedTrainerCollection.findOne(query);
+      res.send(result);
+    });
+
     // accept a applicant as a trainer:
     app.post("/accept-applicant/:id", async (req, res) => {
       const id = req.params.id;
@@ -329,6 +344,14 @@ async function run() {
     app.post("/booking-package", async (req, res) => {
       const bookedPackage = req.body;
       const result = await bookedPackageCollection.insertOne(bookedPackage);
+      res.send(result);
+    });
+
+    // get a booked trainer by user email:
+    app.get("/booked-package-by-email", async (req, res) => {
+      const email = req.query?.email;
+      const query = { userEmail: email };
+      const result = await bookedPackageCollection.findOne(query);
       res.send(result);
     });
 
