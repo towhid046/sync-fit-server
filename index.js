@@ -70,6 +70,14 @@ async function run() {
       res.send(result);
     });
 
+    // get a single user role by email:
+    app.get("/single-user", async (req, res) => {
+      const email = req.query?.email;
+      const query = { email };
+      const result = await userCollection.findOne(query);
+      res.send(result);
+    });
+
     // get all features:
     app.get("/features", async (req, res) => {
       const result = await featureCollection.find().toArray();
@@ -214,6 +222,21 @@ async function run() {
       res.send(result);
     });
 
+    // update a trainer info:
+    app.put("/update-trainer", async (req, res) => {
+      const email = req.query?.email;
+      const query = { email };
+      const trainerDoc = req.body;
+      const updatedDoc = {
+        $set: {
+          availableSlots: trainerDoc.availableSlots,
+          classes: trainerDoc.classes,
+        },
+      };
+      const result = await trainerCollection.updateOne(query, updatedDoc);
+      res.send(result);
+    });
+
     // get all slots of a particular trainers by email:
     app.get("/available-slots", async (req, res) => {
       const email = req.query?.email;
@@ -316,6 +339,14 @@ async function run() {
     });
 
     // --------------------------------------------------------------
+
+    // post a forums:
+    app.post("/forums", async (req, res) => {
+      const forum = req.body;
+      const result = await forumCollection.insertOne(forum);
+      res.send(result);
+    });
+
     // get total forums count:
     app.get("/total-forums-count", async (req, res) => {
       const totalForums = await forumCollection.estimatedDocumentCount();
