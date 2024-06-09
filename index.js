@@ -279,6 +279,18 @@ async function run() {
       const result = await trainerCollection.find().toArray();
       res.send(result);
     });
+    
+    // get 5 trainers based on specific className:
+    app.get("/class-related-trainers", async (req, res) => {
+      const className = req.query?.className;
+      const query = { classes: className };
+      const options = { projection: { name: 1, image: 1 } };
+      const result = await trainerCollection
+        .find(query, options)
+        .limit(5)
+        .toArray();
+      res.send(result);
+    });
 
     // get a single trainer by id :
     app.get("/trainers/:id", async (req, res) => {
@@ -380,17 +392,12 @@ async function run() {
     });
 
     // get a specific applicant
-    app.get(
-      "/applied-trainers/:id",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
-        const id = req.params?.id;
-        const query = { _id: new ObjectId(id) };
-        const result = await appliedTrainerCollection.findOne(query);
-        res.send(result);
-      }
-    );
+    app.get("/applied-trainers/:id", async (req, res) => {
+      const id = req.params?.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await appliedTrainerCollection.findOne(query);
+      res.send(result);
+    });
 
     // get a applied trainer by email:
     app.get("/applied-trainer-by-email", async (req, res) => {
