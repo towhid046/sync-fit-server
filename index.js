@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
@@ -45,6 +46,70 @@ async function run() {
     const bookedPackageCollection = client
       .db("syncFitDB")
       .collection("bookedPackages");
+
+    // -----------------------------------
+
+    // custom middleware:
+    // verifyToken:
+    const verifyToken = (req, res, next) => {
+      if (!req.headers?.authorization) {
+        return res.status(401).send({ message: "unauthorize access" });
+      }
+      const token = req.headers?.authorization.split(" ")[1];
+      if (!token) {
+        return res.status(401).send({ message: "unauthorize access" });
+      }
+      jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+        if (err) {
+          return res.status(403).send({ message: "forbidden access" });
+        }
+        req.user = decoded;
+        next();
+      });
+    };
+
+    // verifyAdmin:
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.user?.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "Admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
+    // verifyTrainer:
+    const verifyTrainer = async (req, res, next) => {
+      const email = req.user?.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let isTrainer = user?.role === "Trainer";
+      if (!isTrainer) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
+    app.get("/user-role/:email", async (req, res) => {
+      const email = req.params?.email;
+      const query = { email };
+      const options = { projection: { _id: 0, role: 1 } };
+      const user_role = await userCollection.findOne(query, options);
+      res.send(user_role);
+    });
+
+    // token verification related api:
+    app.post("/jwt", async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.SECRET_KEY, {
+        expiresIn: "2h",
+      });
+      res.send({ token });
+    });
+
+    // ----------------------------------
 
     // save user to bd:
     app.post("/users", async (req, res) => {
@@ -123,7 +188,7 @@ async function run() {
       res.send({ totalClasses });
     });
 
-    app.post("/add-new-class", async (req, res) => {
+    app.post("/add-new-class", verifyToken, verifyAdmin, async (req, res) => {
       const newClass = req.body;
       const result = await classCollection.insertOne(newClass);
       res.send(result);
@@ -188,15 +253,25 @@ async function run() {
     });
 
     // get all news letter subscribed users:
-    app.get("/news-letter-subscribers", async (req, res) => {
-      const result = await newsLetterUserCollection.find().toArray();
-      res.send(result);
-    });
+    app.get(
+      "/news-letter-subscribers",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await newsLetterUserCollection.find().toArray();
+        res.send(result);
+      }
+    );
 
-    app.get("/count-news-letter-subscribers", async (req, res) => {
-      const result = await newsLetterUserCollection.estimatedDocumentCount();
-      res.send({ count: result });
-    });
+    app.get(
+      "/count-news-letter-subscribers",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await newsLetterUserCollection.estimatedDocumentCount();
+        res.send({ count: result });
+      }
+    );
 
     // ----------------------------------------------------------------
     // get all trainers:
@@ -237,40 +312,47 @@ async function run() {
     });
 
     // get all slots of a particular trainers by email:
-    app.get("/available-slots", async (req, res) => {
-      const email = req.query?.email;
-      const query = { email: email };
-      const options = { projection: { _id: 0, availableSlots: 1 } };
-      const result = await trainerCollection.findOne(query, options);
-      res.send(result);
-    });
+    app.get(
+      "/available-slots",
+      verifyToken,
+      verifyTrainer,
+      async (req, res) => {
+        const email = req.query?.email;
+        const query = { email: email };
+        const options = { projection: { _id: 0, availableSlots: 1 } };
+        const result = await trainerCollection.findOne(query, options);
+        res.send(result);
+      }
+    );
 
     // remove a slot:
-    app.delete("/remove-a-slot", async (req, res) => {
-      const trainerEmail = req.query?.email;
-      const slotName = req.query?.slot_name;
-      const filter = { email: trainerEmail };
-      const update = { $pull: { availableSlots: slotName } };
-      const result = await trainerCollection.updateOne(filter, update);
-      res.send(result);
-    });
+    app.delete(
+      "/remove-a-slot",
+      verifyToken,
+      verifyTrainer,
+      async (req, res) => {
+        const trainerEmail = req.query?.email;
+        const slotName = req.query?.slot_name;
+        const filter = { email: trainerEmail };
+        const update = { $pull: { availableSlots: slotName } };
+        const result = await trainerCollection.updateOne(filter, update);
+        res.send(result);
+      }
+    );
     // -------------------------------
 
     // remove a trainer and it's role will be changed to Member
-    app.delete("/remove-trainer/:id", async (req, res) => {
-      const id = req.params?.id;
-      const email = req.query.email;
-      const query = { _id: new ObjectId(id) };
-
-      const newUserDoc = { email: email, role: "Member" };
-      const addedUser = await userCollection.insertOne(newUserDoc);
-
-      let result = "";
-      if (addedUser) {
-        result = await trainerCollection.deleteOne(query);
+    app.delete(
+      "/remove-trainer/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params?.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await trainerCollection.deleteOne(query);
+        res.send(result);
       }
-      res.send(result);
-    });
+    );
     // -----------------------------------------------------------
     // save pending trainers api:
     app.post("/applied-trainers", async (req, res) => {
@@ -291,19 +373,24 @@ async function run() {
     });
 
     // get all applicant
-    app.get("/applied-trainers", async (req, res) => {
+    app.get("/applied-trainers", verifyToken, verifyAdmin, async (req, res) => {
       const query = { status: "Pending" };
       const result = await appliedTrainerCollection.find(query).toArray();
       res.send(result);
     });
 
     // get a specific applicant
-    app.get("/applied-trainers/:id", async (req, res) => {
-      const id = req.params?.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await appliedTrainerCollection.findOne(query);
-      res.send(result);
-    });
+    app.get(
+      "/applied-trainers/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params?.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await appliedTrainerCollection.findOne(query);
+        res.send(result);
+      }
+    );
 
     // get a applied trainer by email:
     app.get("/applied-trainer-by-email", async (req, res) => {
@@ -323,10 +410,16 @@ async function run() {
       delete acceptedApplicant._id;
 
       const acceptedApplicantDoc = { ...acceptedApplicant };
-
       const accepted = await trainerCollection.insertOne(acceptedApplicantDoc);
+
+      const filter = { email: acceptedApplicant?.email };
+      const userDoc = {
+        $set: { email: acceptedApplicant?.email, role: "Trainer" },
+      };
+      const acceptedTrainer = await userCollection.updateOne(filter, userDoc);
+
       let result = null;
-      if (accepted) {
+      if (accepted && acceptedTrainer) {
         result = await appliedTrainerCollection.deleteOne(query);
       }
       res.send(result);
@@ -368,15 +461,20 @@ async function run() {
     });
 
     // get all booking-packages:
-    app.get("/all-booked-packages", async (req, res) => {
-      const result = await bookedPackageCollection.find().toArray();
-      res.send(result);
-    });
+    app.get(
+      "/all-booked-packages",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const result = await bookedPackageCollection.find().toArray();
+        res.send(result);
+      }
+    );
 
     // --------------------------------------------------------------
 
     // post a forums:
-    app.post("/forums", async (req, res) => {
+    app.post("/forums", verifyToken, async (req, res) => {
       const forum = req.body;
       const result = await forumCollection.insertOne(forum);
       res.send(result);
