@@ -12,8 +12,18 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://syncfit-781cf.web.app",
+      "https://syncfit-781cf.firebaseapp.com",
+    ]
+  })
+);
+
 app.get("/", (req, res) => {
-  res.send("Assignment 12 server is running");
+  res.send("SyncFit server is running");
 });
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.q1nysvk.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
