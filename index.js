@@ -1,26 +1,25 @@
-const express = require("express");
-const cors = require("cors");
-const jwt = require("jsonwebtoken");
+import express, { json } from "express";
+import cors from "cors";
+import { verify, sign } from "jsonwebtoken";
 require("dotenv").config();
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
 
 const app = express();
 
 const port = process.env.PORT || 5000;
 
 // middleware:
-app.use(cors());
-app.use(express.json());
-
 app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://syncfit-781cf.web.app",
-      "https://syncfit-781cf.firebaseapp.com",
-    ]
+      "http://localhost:4173",
+      "https://sync-fit2.web.app",
+      "https://sync-fit2.firebaseapp.com"
+    ],
   })
-);
+)
+app.use(json());
 
 app.get("/", (req, res) => {
   res.send("SyncFit server is running");
@@ -69,7 +68,7 @@ async function run() {
       if (!token) {
         return res.status(401).send({ message: "unauthorize access" });
       }
-      jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+      verify(token, process.env.SECRET_KEY, (err, decoded) => {
         if (err) {
           return res.status(403).send({ message: "forbidden access" });
         }
@@ -113,7 +112,7 @@ async function run() {
     // token verification related api:
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.SECRET_KEY, {
+      const token = sign(user, process.env.SECRET_KEY, {
         expiresIn: "2h",
       });
       res.send({ token });
@@ -127,7 +126,7 @@ async function run() {
       const query = { email: user.email };
       const isUserExist = await userCollection.findOne(query);
       if (isUserExist) {
-        return;
+        res.send({message: 'user already exist'})
       }
       const result = await userCollection.insertOne(user);
       res.send(result);
@@ -289,7 +288,7 @@ async function run() {
       const result = await trainerCollection.find().toArray();
       res.send(result);
     });
-    
+
     // get 5 trainers based on specific className:
     app.get("/class-related-trainers", async (req, res) => {
       const className = req.query?.className;
