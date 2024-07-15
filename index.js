@@ -114,6 +114,17 @@ async function run() {
       const result = await bookedPackageCollection.updateOne(query, updateDoc);
       res.send(result);
     });
+
+    // delete the booked package that cancel the payment:
+    app.delete("/delete-booking-package-payment-cancel", async (req, res) => {
+      const userEmail = req.query?.email;
+      if (!userEmail) {
+        return;
+      }
+      const query = { userEmail, paymentStatus: "unpaid" };
+      const result = await bookedPackageCollection.deleteOne(query);
+      res.send(result);
+    });
     // -----------------------------------
 
     // custom middleware:
