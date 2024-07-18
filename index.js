@@ -85,6 +85,7 @@ async function run() {
         paymentStatus,
       } = await bookedPackageCollection.findOne({
         userEmail: email,
+        paymentStatus: "paid",
       });
       if (!trainerName) {
         return res.status(400).send({ message: "User not is found" });
