@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { verify, sign } = require("jsonwebtoken");
 require("dotenv").config();
+const nodemailer = require("nodemailer");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const stripe = require("stripe")(process.env.STRIPE_PRIVATE_KEY);
@@ -36,6 +37,14 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   },
 });
+// email sender transport:
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
 async function run() {
   try {
@@ -57,6 +66,84 @@ async function run() {
       .db("syncFitDB")
       .collection("bookedPackages");
 
+    // -----------------------------------
+    // email sending api:
+    app.post("/send-email", async (req, res) => {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).send({ message: "User email is required" });
+      }
+
+      const {
+        trainerName,
+        trainerEmail,
+        slotName,
+        packageName,
+        price,
+        userName,
+        userEmail,
+        paymentStatus,
+      } = await bookedPackageCollection.findOne({
+        userEmail: email,
+      });
+      if (!trainerName) {
+        return res.status(400).send({ message: "User not is found" });
+      }
+      const { image: trainerImage } = await trainerCollection.findOne(
+        { email: trainerEmail },
+        { projection: { _id: 0, image: 1 } }
+      );
+      const syncFitEmail = "syncfit2@gmail.com";
+      const syncFitPhone = "+880123456877";
+      const syncFitWebsite = "https://sync-fit2.web.app";
+      const emailContent = `
+           <section style="font-family: Arial, sans-serif; background-color: #f0f4f8; padding: 50px 20px; color: #333;">
+             <div style="max-width: 600px; margin: auto; background-color: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+               <h2 style="text-align: center; color: #1d4ed8;">Thank You for Booking with SyncFit!</h2>
+               <p style="font-size: 16px; color: #555;">Hi ${userName},</p>
+               <p style="font-size: 16px; color: #555;">Thank you for booking a <strong>${packageName}</strong> with us. We are thrilled to have you on board and look forward to helping you achieve your fitness goals. And <strong>${trainerName}</strong> will be your trainer.</p>
+
+               <div style="display: flex; justify-content:center;  margin: 20px auto; ">
+                 <img src=${trainerImage} alt="${trainerName}" style="border-radius: 50%; width: 100px; height: 100px;  margin:auto;">
+               </div>
+
+               <p style="font-size: 16px; color: #555;">Booking Details:</p>
+               <ul style="font-size: 16px; color: #555; padding-left: 20px;">
+                 <li><strong>Service:</strong> ${packageName}</li>
+                 <li><strong>Price:</strong> $${price}</li>
+                 <li><strong>Trainer:</strong> ${trainerName}</li>
+                 <li><strong>Date and Time:</strong> ${slotName}</li>
+                 <li><strong>Payment Status:</strong> ${paymentStatus}</li>
+               </ul>
+
+               <p style="font-size: 16px; color: #555;">If you have any questions or need to reschedule, please feel free to contact us at <a href="mailto:${syncFitEmail}" style="color: #1d4ed8;">${syncFitEmail}</a> or call us at <a href="tel:${syncFitPhone}" style="color: #1d4ed8;">${syncFitPhone}</a>.</p>
+
+               <p style="font-size: 16px; color: #555;">We look forward to seeing you soon!</p>
+
+               <p style="font-size: 16px; color: #555;">Best regards,</p>
+               <p style="font-size: 16px; color: #555;"><strong>The SyncFit Team</strong></p>
+
+               <div style="text-align: center; margin-top: 20px;">
+                 <a href="${syncFitWebsite}" style="display: inline-block; padding: 10px 20px; background-color: #1d4ed8; color: #fff; text-decoration: none; border-radius: 5px;">Visit SyncFit</a>
+               </div>
+             </div>
+           </section>
+          `;
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: userEmail,
+        subject: "SyncFit Payment",
+        html: emailContent,
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        res.status(200).send({ message: "Email sent success" });
+      } catch (error) {
+        res.status(500).send({ message: error });
+      }
+    });
     // -----------------------------------
     // Payment related apis
     app.post("/make-payment", async (req, res) => {
