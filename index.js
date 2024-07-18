@@ -1,9 +1,10 @@
-import express, { json } from "express";
-import cors from "cors";
-import { verify, sign } from "jsonwebtoken";
+const express = require("express");
+const cors = require("cors");
+const { verify, sign } = require("jsonwebtoken");
 require("dotenv").config();
-import { MongoClient, ServerApiVersion, ObjectId } from "mongodb";
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+const stripe = require("stripe")(process.env.STRIPE_PRIVATE_KEY);
 const app = express();
 
 const port = process.env.PORT || 5000;
@@ -15,11 +16,11 @@ app.use(
       "http://localhost:5173",
       "http://localhost:4173",
       "https://sync-fit2.web.app",
-      "https://sync-fit2.firebaseapp.com"
+      "https://sync-fit2.firebaseapp.com",
     ],
   })
-)
-app.use(json());
+);
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("SyncFit server is running");
@@ -57,6 +58,74 @@ async function run() {
       .collection("bookedPackages");
 
     // -----------------------------------
+    // Payment related apis
+    app.post("/make-payment", async (req, res) => {
+      const trainer = req.body;
+      let price = 0;
+      if (trainer.packageName === "Basic Membership") {
+        price = 10;
+      }
+      if (trainer.packageName === "Standard Membership") {
+        price = 50;
+      }
+      if (trainer.packageName === "Premium Membership") {
+        price = 100;
+      }
+
+      if (!price) {
+        return res.status(500).send({ message: "Something went wrong!" });
+      }
+
+      try {
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+          mode: "payment",
+          line_items: [
+            {
+              price_data: {
+                currency: "usd",
+                product_data: {
+                  name: `${trainer.trainerName} will be your trainer`,
+                },
+                unit_amount: price * 100,
+              },
+              quantity: 1,
+            },
+          ],
+          success_url: `${process.env.CLIENT_URL}/success-payment`,
+          cancel_url: `${process.env.CLIENT_URL}/cancel-payment`,
+        });
+        res.send({ url: session.url });
+      } catch (e) {
+        res.status(500).send(e.message);
+      }
+    });
+
+    // update the payment status:
+    app.patch("/update-booking-package-payment-status", async (req, res) => {
+      const userEmail = req.body?.email;
+      if (!userEmail) {
+        return;
+      }
+      const query = { userEmail };
+      const updateDoc = {
+        $set: { paymentStatus: "paid" },
+      };
+      const result = await bookedPackageCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+    // delete the booked package that cancel the payment:
+    app.delete("/delete-booking-package-payment-cancel", async (req, res) => {
+      const userEmail = req.query?.email;
+      if (!userEmail) {
+        return;
+      }
+      const query = { userEmail, paymentStatus: "unpaid" };
+      const result = await bookedPackageCollection.deleteOne(query);
+      res.send(result);
+    });
+    // -----------------------------------
 
     // custom middleware:
     // verifyToken:
@@ -68,7 +137,7 @@ async function run() {
       if (!token) {
         return res.status(401).send({ message: "unauthorize access" });
       }
-      verify(token, process.env.SECRET_KEY, (err, decoded) => {
+      verify(token, process.env.TOKEN_SECRET_KEY, (err, decoded) => {
         if (err) {
           return res.status(403).send({ message: "forbidden access" });
         }
@@ -112,7 +181,7 @@ async function run() {
     // token verification related api:
     app.post("/jwt", async (req, res) => {
       const user = req.body;
-      const token = sign(user, process.env.SECRET_KEY, {
+      const token = sign(user, process.env.TOKEN_SECRET_KEY, {
         expiresIn: "2h",
       });
       res.send({ token });
@@ -126,7 +195,7 @@ async function run() {
       const query = { email: user.email };
       const isUserExist = await userCollection.findOne(query);
       if (isUserExist) {
-        res.send({message: 'user already exist'})
+        res.send({ message: "user already exist" });
       }
       const result = await userCollection.insertOne(user);
       res.send(result);
@@ -464,7 +533,10 @@ async function run() {
     // save a booked package:
     app.post("/booking-package", async (req, res) => {
       const bookedPackage = req.body;
-      const result = await bookedPackageCollection.insertOne(bookedPackage);
+      const result = await bookedPackageCollection.insertOne({
+        ...bookedPackage,
+        paymentStatus: "unpaid",
+      });
       res.send(result);
     });
 
@@ -482,7 +554,9 @@ async function run() {
       verifyToken,
       verifyAdmin,
       async (req, res) => {
-        const result = await bookedPackageCollection.find().toArray();
+        const result = await bookedPackageCollection
+          .find({ paymentStatus: "paid" })
+          .toArray();
         res.send(result);
       }
     );
