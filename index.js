@@ -282,11 +282,13 @@ async function run() {
       const user = req.body;
       const query = { email: user.email };
       const isUserExist = await userCollection.findOne(query);
-      if (isUserExist) {
+      if (isUserExist.email) {
         res.send({ message: "user already exist" });
       }
       const result = await userCollection.insertOne(user);
-      res.send(result);
+      if (result.insertedId) {
+        res.send(result);
+      }
     });
 
     // get all slices for banner:
@@ -372,6 +374,36 @@ async function run() {
       res.send(classNames);
     });
 
+    // get 5 trainers by the matched class name
+    app.get("/get-class-instructors", async (req, res) => {
+      const { className } = req.query;
+
+      if (!className) {
+        return res.status(400).send({ message: "Class Name is required" });
+      }
+
+      const filter = {
+        classes: className,
+      };
+      const projection = {
+        _id: 1,
+        name: 1,
+        image: 1,
+      };
+
+      try {
+        const result = await trainerCollection
+          .find(filter)
+          .project(projection)
+          .limit(5)
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Internal Server Error" });
+      }
+    });
     // -------------------------------------------------------------------
     // save a review:
     app.post("/reviews", async (req, res) => {
@@ -587,7 +619,11 @@ async function run() {
 
       const filter = { email: acceptedApplicant?.email };
       const userDoc = {
-        $set: { email: acceptedApplicant?.email, role: "Trainer" },
+        $set: {
+          email: acceptedApplicant?.email,
+          role: "Trainer",
+          status: "Accepted",
+        },
       };
       const acceptedTrainer = await userCollection.updateOne(filter, userDoc);
 
